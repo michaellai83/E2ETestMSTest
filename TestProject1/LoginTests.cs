@@ -8,7 +8,7 @@ using System.Threading;
 namespace TestProject1;
 
 [TestClass]
-public sealed class GoogleHomePageTests
+public sealed class LoginTests
 {
     private IWebDriver? _driver;
     private WebDriverWait? _wait;
