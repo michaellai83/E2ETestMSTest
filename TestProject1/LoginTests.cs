@@ -48,6 +48,7 @@ public sealed class LoginTests
                 {
                     new Cookie("cookieUsageNoticePopup", "1", ".uatasia.com", "/", DateTime.Now.AddYears(1)),
                     new Cookie("MainBannerPopup_michael001", "1", ".uatasia.com", "/", DateTime.Now.AddYears(1)),
+                    new Cookie("MainBannerPopup_michael002", "1", ".uatasia.com", "/", DateTime.Now.AddYears(1)),
                     new Cookie("MainBannerPopup_guest", "1", ".uatasia.com", "/", DateTime.Now.AddYears(1))
                 };
                 
@@ -687,6 +688,275 @@ public sealed class LoginTests
         catch (Exception ex)
         {
             Assert.Fail($"彈窗處理測試失敗: {ex.Message}");
+        }
+    }
+    
+    [TestMethod]
+    public void Deposit_WithValidCredentials_ShouldSucceed()
+    {
+        try
+        {
+            // 先處理可能存在的彈窗干擾
+            try
+            {
+                var popup = _driver.FindElement(By.CssSelector("div[data-ttid='pop-up']"));
+                if (popup.Displayed)
+                {
+                    Console.WriteLine("發現彈窗，嘗試關閉");
+                    // 嘗試找到關閉按鈕
+                    var closeButtons = _driver.FindElements(By.CssSelector("[class*='close'], [class*='dismiss'], [class*='cancel'], button[aria-label*='close'], button[aria-label*='Close']"));
+                    foreach (var closeBtn in closeButtons)
+                    {
+                        if (closeBtn.Displayed)
+                        {
+                            closeBtn.Click();
+                            Thread.Sleep(1000);
+                            break;
+                        }
+                    }
+                    
+                    // 如果沒有找到關閉按鈕，嘗試按 ESC 鍵
+                    _driver.FindElement(By.TagName("body")).SendKeys(Keys.Escape);
+                    Thread.Sleep(1000);
+                }
+            }
+            catch (Exception popupEx)
+            {
+                Console.WriteLine($"處理彈窗時發生錯誤: {popupEx.Message}");
+            }
+            
+            // 點擊登入按鈕
+            var loginButton = _driver.FindElement(By.CssSelector("button[data-ttid='login-btn']"));
+            
+            // 使用 JavaScript 點擊來避免元素被遮擋的問題
+            ((IJavaScriptExecutor)_driver).ExecuteScript("arguments[0].click();", loginButton);
+            
+            // 等待登入表單出現
+            Thread.Sleep(2000);
+            
+            // 找到輸入框
+            var usernameField = _driver.FindElement(By.CssSelector("input[type='email'], input[type='text'], input[name*='user'], input[name*='email']"));
+            var passwordField = _driver.FindElement(By.CssSelector("input[type='password'], input[name*='password']"));
+            
+            // 輸入測試帳號密碼（請替換為您的實際帳號密碼）
+            // 方法 1：直接替換（請替換為您的實際帳號密碼）
+            string testUsername = "michael002";  // 請替換為您的實際用戶名
+            string testPassword = "Aa111111";  // 請替換為您的實際密碼
+            
+            // 清空並輸入用戶名
+            usernameField.Clear();
+            usernameField.SendKeys(testUsername);
+            
+            // 清空並輸入密碼
+            passwordField.Clear();
+            passwordField.SendKeys(testPassword);
+            
+            // 找到並點擊提交按鈕
+            var submitButton = _driver.FindElement(By.CssSelector("button[data-ttid='login-submit-btn']"));
+            submitButton.Click();
+            
+            // 等待登入處理完成
+            Thread.Sleep(2000);
+            
+            // 驗證登入成功（檢查是否出現使用者帳號）
+            try
+            {
+                // 檢查是否出現用戶相關元素（登入成功後通常會有）
+                var userElements = _driver.FindElements(By.CssSelector("[data-ttid*='user-name']"));
+                if (userElements.Count > 0)
+                {
+                    if (userElements[0].Text == testUsername)
+                    {
+                        Console.WriteLine($"找到用戶帳號:{userElements[0].Text}");
+                    }
+                }
+            }
+            catch (Exception verificationEx)
+            {
+                Console.WriteLine($"登入驗證過程中發生錯誤: {verificationEx.Message}");
+            }
+            
+            //Deposit
+            // 找到並點擊提交按鈕
+            var depositButton = _driver.FindElement(By.CssSelector("button[data-ttid='deposit-btn']"));
+            depositButton.Click();
+            
+            // 等待DepositPage切換完成
+            Thread.Sleep(2000);
+            
+            // 檢查並取消Pending狀態
+            CancelPendingDeposit();
+            
+            // 找到Bank Transfer 提交按鈕
+            var bankButton = _driver.FindElement(By.CssSelector("button[data-ttid='deposit-BankTransfer']"));
+            bankButton.Click();
+            
+            // 等待操作完成
+            Thread.Sleep(2000);
+            
+            try
+            {
+                // 找到shortcut-list容器
+                var shortcutContainer = _driver.FindElement(By.CssSelector("div[data-ttid='shortcut-list']"));
+                
+                // 等待按鈕載入
+                Thread.Sleep(1000);
+                
+                // 找到所有按鈕
+                var buttons = shortcutContainer.FindElements(By.CssSelector("button"));
+                
+                Console.WriteLine($"找到 {buttons.Count} 個按鈕");
+                
+                IWebElement clickableButton = null;
+                
+                if (buttons.Count > 0)
+                {
+                    foreach (var button in buttons)
+                    {
+                        try
+                        {
+                            // 檢查按鈕是否可點擊
+                            var disabled = button.GetAttribute("disabled");
+                            var pointerEvents = button.GetCssValue("pointer-events");
+                            
+                            Console.WriteLine($"按鈕文字: {button.Text}, disabled: {disabled}, pointer-events: {pointerEvents}");
+                            
+                            // 檢查按鈕是否可點擊（沒有disabled屬性且pointer-events不是none）
+                            if (string.IsNullOrEmpty(disabled) && !pointerEvents.Equals("none"))
+                            {
+                                clickableButton = button;
+                                Console.WriteLine($"找到可點擊的按鈕: {button.Text}");
+                                break;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"檢查按鈕時發生錯誤: {ex.Message}");
+                            continue;
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("沒有找到任何按鈕");
+                }
+                
+                if (clickableButton != null)
+                {
+                    clickableButton.Click();
+                    Console.WriteLine($"已選擇可點擊的快捷金額按鈕: {clickableButton.Text}");
+                }
+                else
+                {
+                    Console.WriteLine("沒有找到可點擊的快捷金額按鈕");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"處理快捷按鈕時發生錯誤: {ex.Message}");
+            }
+            
+            // 等待操作完成
+            Thread.Sleep(1000);
+            
+            // Deposite Submit
+            var depositeCreateButton = _driver.FindElement(By.CssSelector("button[data-ttid='form-submit-btn']"));
+            depositeCreateButton.Click();
+            
+            // 等待操作完成
+            Thread.Sleep(2000);
+            
+            // 檢查存款單送出的成功彈窗
+            try
+            {
+                // 等待彈窗出現
+                Thread.Sleep(2000);
+                
+                // 查找成功提示彈窗
+                var successToast = _driver.FindElement(By.CssSelector("div[role='alert'].Toastify__toast-body"));
+                
+                if (successToast != null)
+                {
+                    // 檢查彈窗內容是否包含"Submitted Successfully"
+                    var toastText = successToast.Text;
+                    Console.WriteLine($"找到成功提示彈窗: {toastText}");
+                    
+                    if (toastText.Contains("Submitted Successfully"))
+                    {
+                        Console.WriteLine("存款單送出成功！");
+                        
+                        // 等待彈窗自動消失或手動關閉
+                        Thread.Sleep(3000);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"彈窗內容不符合預期: {toastText}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("未找到成功提示彈窗");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"檢查成功彈窗時發生錯誤: {ex.Message}");
+            }
+
+            //取消訂單 避免下次測試有存款單
+            CancelPendingDeposit();
+            
+            
+            Console.WriteLine("Deposit測試完成");
+        }
+        catch (Exception ex)
+        {
+            Assert.Fail($"Deposit測試失敗: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 檢查並取消Pending狀態的存款單
+    /// </summary>
+    private void CancelPendingDeposit()
+    {
+        try
+        {
+            var pendingButton = _driver.FindElement(By.CssSelector("button[data-ttid='form-pending-btn']"));
+            
+            if (pendingButton != null)
+            {
+                Console.WriteLine("發現Pending按鈕，嘗試點擊取消");
+                
+                // 點擊取消按鈕
+                var cancelButton = _driver.FindElement(By.CssSelector("button[data-ttid='deposit-history-table-cancel-btn']"));
+                cancelButton.Click();
+                
+                Console.WriteLine("已點擊Cancel按鈕取消");
+                
+                // 等待取消操作完成
+                Thread.Sleep(2000);
+                
+                // 確認取消彈窗
+                var popupOkButton = _driver.FindElement(By.CssSelector("button[data-ttid='modal-ok-btn']"));
+                popupOkButton.Click();
+                
+                // 等待取消操作完成
+                Thread.Sleep(2000);
+                Console.WriteLine("已取消Deposit單");
+            }
+            else
+            {
+                Console.WriteLine("未發現Pending按鈕");
+            }
+        }
+        catch (NoSuchElementException)
+        {
+            Console.WriteLine("未發現Pending按鈕，繼續正常流程");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"檢查Pending按鈕時發生錯誤: {ex.Message}");
         }
     }
 }
